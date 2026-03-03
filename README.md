@@ -116,3 +116,141 @@ docker run shpaker/feedforbot --help
 ```commandline
 docker run ghcr.io/shpaker/feedforbot --help
 ```
+
+VPS Installation Guide
+----------------------
+
+This section provides a step-by-step guide to deploy **FeedForBot** on a Linux VPS (Ubuntu/Debian).
+
+### Prerequisites
+
+- A VPS running Ubuntu 20.04+ or Debian 11+
+- Python 3.10 or newer
+- `pip` package manager
+
+### Option 1: Install with pip and run as a systemd service
+
+**Step 1 – Update your system and install Python**
+
+```commandline
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y python3 python3-pip python3-venv
+```
+
+**Step 2 – Create a dedicated user (recommended)**
+
+```commandline
+sudo useradd --system --create-home feedforbot
+sudo su - feedforbot
+```
+
+**Step 3 – Install FeedForBot**
+
+```commandline
+pip install feedforbot -U
+```
+
+**Step 4 – Create a configuration file**
+
+Create `/home/feedforbot/config.yml` with your feed and transport settings:
+
+```yaml
+---
+cache:
+  type: 'files'
+schedulers:
+  - listener:
+      type: 'rss'
+      params:
+        url: 'https://example.com/rss'
+    transport:
+      type: 'telegram_bot'
+      params:
+        token: '123456789:AAAAAAAAAA-BBBB-CCCCCCCCCCCC-DDDDDD'
+        to: '@yourchannel'
+```
+
+**Step 5 – Test the bot manually**
+
+```commandline
+feedforbot --verbose /home/feedforbot/config.yml
+```
+
+**Step 6 – Create a systemd service to run it automatically**
+
+Exit back to your sudo user, then create the service file:
+
+```commandline
+exit
+sudo nano /etc/systemd/system/feedforbot.service
+```
+
+Paste the following content:
+
+```ini
+[Unit]
+Description=FeedForBot RSS to Messenger Bot
+After=network.target
+
+[Service]
+Type=simple
+User=feedforbot
+ExecStart=/home/feedforbot/.local/bin/feedforbot /home/feedforbot/config.yml
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Step 7 – Enable and start the service**
+
+```commandline
+sudo systemctl daemon-reload
+sudo systemctl enable feedforbot
+sudo systemctl start feedforbot
+sudo systemctl status feedforbot
+```
+
+---
+
+### Option 2: Run with Docker
+
+**Step 1 – Install Docker**
+
+```commandline
+sudo apt update && sudo apt install -y docker.io
+sudo systemctl enable --now docker
+```
+
+**Step 2 – Create a configuration file**
+
+Create `config.yml` in a convenient directory, e.g. `/opt/feedforbot/config.yml`, with your feed and transport settings (see the CLI section above for an example).
+
+**Step 3 – Run the container**
+
+Using Docker Hub:
+
+```commandline
+docker run -d \
+  --name feedforbot \
+  --restart unless-stopped \
+  -v /opt/feedforbot/config.yml:/config.yml \
+  shpaker/feedforbot /config.yml
+```
+
+Or using GHCR:
+
+```commandline
+docker run -d \
+  --name feedforbot \
+  --restart unless-stopped \
+  -v /opt/feedforbot/config.yml:/config.yml \
+  ghcr.io/shpaker/feedforbot /config.yml
+```
+
+**Step 4 – Check logs**
+
+```commandline
+docker logs -f feedforbot
+```
